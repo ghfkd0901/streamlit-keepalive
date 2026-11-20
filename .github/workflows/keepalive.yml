@@ -63,15 +63,20 @@ jobs:
         with:
           python-version: "3.12"
 
+      # 실행 서버에 구글 크롬이 이미 깔려 있으면 그걸 쓰고(몇 초), 없을 때만 크롬을 새로 설치(약 10분)
       - name: Install Playwright
         run: |
           pip install playwright
-          python -m playwright install --with-deps chromium
+          if command -v google-chrome >/dev/null; then
+            echo "설치된 구글 크롬 사용: $(google-chrome --version)"
+          else
+            python -m playwright install --with-deps chromium
+          fi
 
       - name: Open every app (wake up if asleep)
         run: |
           python - <<'PY'
-          import asyncio, os, sys
+          import asyncio, os, shutil, sys
           from playwright.async_api import async_playwright
 
           urls = [u.strip() for u in os.environ["APPS"].splitlines()
@@ -100,7 +105,7 @@ jobs:
 
           async def main():
               async with async_playwright() as p:
-                  browser = await p.chromium.launch()
+                  browser = await p.chromium.launch(channel="chrome" if shutil.which("google-chrome") else None)
                   await asyncio.gather(*(visit(browser, u) for u in urls))
                   await browser.close()
 
